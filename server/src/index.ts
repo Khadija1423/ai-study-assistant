@@ -2,6 +2,7 @@ import express from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
 import { connectDB } from './config/db';
+import quizRoutes from './routes/quiz';
 
 dotenv.config();
 
@@ -15,6 +16,9 @@ app.use(express.json());
 app.get('/api/health', (req, res) => {
   res.json({ status: 'ok' });
 });
+
+// Use routes
+app.use('/api', quizRoutes);
 
 const startServer = async () => {
   await connectDB();
