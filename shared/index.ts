@@ -39,3 +39,17 @@ export interface QuizAttempt {
   results: QuestionResult[];
   createdAt: Date;
 }
+
+export type DocumentStatus = 'processing' | 'ready' | 'failed';
+
+export interface Document {
+  _id?: string;
+  userId: string;
+  originalFilename: string;
+  fileType: string;
+  storagePath: string; // The GridFS filename/id
+  extractedText?: string;
+  status: DocumentStatus;
+  errorMessage?: string;
+  createdAt: Date;
+}

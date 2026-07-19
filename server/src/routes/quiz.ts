@@ -70,7 +70,7 @@ router.post('/documents/:id/quiz', async (req, res) => {
       });
 
       await quiz.save();
-      quizId = quiz._id as string;
+      quizId = quiz._id as unknown as string;
     }
 
     // Strip answers and explanations for the client to prevent cheating
