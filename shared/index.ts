@@ -51,6 +51,7 @@ export interface Document {
   extractedText?: string;
   status: DocumentStatus;
   errorMessage?: string;
+  summary?: Summary;
   createdAt: Date;
 }
 
@@ -61,4 +62,16 @@ export interface Chunk {
   chunkIndex: number;
   text: string;
   tokenCount: number;
+}
+
+export interface TermDefinition {
+  term: string;
+  definition: string;
+}
+
+export interface Summary {
+  shortSummary: string;
+  keyPoints: string[];
+  definitions: TermDefinition[];
+  examFocusNotes: string[];
 }
