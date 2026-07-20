@@ -4,7 +4,10 @@ import { DocumentModel } from '../models/Document';
 import { fileStorage } from '../services/storage/gridFsStorage';
 import { extractTextFromFile } from '../services/extractionService';
 import { processAndSaveChunks } from '../services/chunkingService';
-import { generateText } from '../ai/client';
+import { generateText, embedText, streamText } from '../ai/client';
+import { ChatMessageModel } from '../models/ChatMessage';
+import { retrieveRelevantChunks } from '../services/retrievalService';
+import { AnswerSubmission } from '../../../shared';
 
 const router = Router();
 const upload = multer({
@@ -341,6 +344,156 @@ router.post('/:id/summary', async (req, res) => {
   } catch (error) {
     console.error('Summary generation error:', error);
     res.status(500).json({ error: 'Failed to generate summary' });
+  }
+});
+
+// GET chat history
+router.get('/:id/chat', async (req, res) => {
+  const { id } = req.params;
+  const userId = 'user_123';
+
+  try {
+    const history = await ChatMessageModel.find({ documentId: id, userId }).sort('createdAt');
+    res.json(history);
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to fetch chat history' });
+  }
+});
+
+// POST new chat message (streamed)
+router.post('/:id/chat', async (req, res) => {
+  const { id } = req.params;
+  const userId = 'user_123';
+  const { question, conversationHistory } = req.body;
+
+  if (!question) {
+    return res.status(400).json({ error: 'Question is required' });
+  }
+
+  // Setup SSE headers
+  res.setHeader('Content-Type', 'text/event-stream');
+  res.setHeader('Cache-Control', 'no-cache');
+  res.setHeader('Connection', 'keep-alive');
+  res.flushHeaders();
+
+  try {
+    // 1. Embed Question
+    let queryEmbedding: number[] = [];
+    if (process.env.NODE_ENV !== 'test' && process.env.SKIP_MONGO !== 'true') {
+      queryEmbedding = await embedText(question);
+    } else {
+      // Mock embedding for dev/test
+      queryEmbedding = new Array(768).fill(0.1);
+    }
+
+    // 2. Retrieve top chunks
+    const relevantChunks = await retrieveRelevantChunks(id, queryEmbedding, 5);
+
+    if (relevantChunks.length === 0) {
+      const fallbackResponse = "I can't find that in your uploaded document.";
+
+      // Save User Message
+      if (process.env.SKIP_MONGO !== 'true') {
+        await ChatMessageModel.create({
+          documentId: id,
+          userId,
+          role: 'user',
+          content: question,
+        });
+
+        // Save Model Fallback Message
+        await ChatMessageModel.create({
+          documentId: id,
+          userId,
+          role: 'model',
+          content: fallbackResponse,
+          sourceChunks: [],
+        });
+      }
+
+      res.write(`data: ${JSON.stringify({ text: fallbackResponse })}\n\n`);
+      res.write(`data: ${JSON.stringify({ done: true, sourceChunks: [] })}\n\n`);
+      return res.end();
+    }
+
+    const contextText = relevantChunks
+      .map((c) => `[Chunk ${c.chunkIndex}]: ${c.text}`)
+      .join('\n\n');
+    const sourceChunks = relevantChunks.map((c) => ({
+      chunkIndex: c.chunkIndex,
+      excerpt: c.text.substring(0, 150) + '...',
+    }));
+
+    // 3. Build Prompt
+    const historyText = conversationHistory
+      ? conversationHistory
+          .map((msg: any) => `${msg.role === 'user' ? 'User' : 'Assistant'}: ${msg.content}`)
+          .join('\n')
+      : '';
+
+    const prompt = `You are a helpful study assistant. Answer the user's question explicitly and ONLY using the provided document context below.
+If the answer cannot be found in the context, you must exactly say: "I can't find that in your uploaded document".
+If you do find the answer in the context, you must prefix your answer exactly with: "Answer based on your uploaded document: ".
+
+Document Context:
+${contextText}
+
+Previous Conversation:
+${historyText}
+
+User Question: ${question}
+Answer:`;
+
+    // 4. Save User Message
+    if (process.env.SKIP_MONGO !== 'true') {
+      await ChatMessageModel.create({
+        documentId: id,
+        userId,
+        role: 'user',
+        content: question,
+      });
+    }
+
+    // Send the source chunks immediately so the frontend has them
+    res.write(`data: ${JSON.stringify({ sourceChunks })}\n\n`);
+
+    // 5. Stream AI Response
+    let fullResponse = '';
+
+    if (process.env.NODE_ENV === 'test' || process.env.SKIP_MONGO === 'true') {
+      // Mock streaming
+      const words =
+        'Answer based on your uploaded document: This is a mock streaming response based on chunk data.'.split(
+          ' ',
+        );
+      for (const word of words) {
+        fullResponse += word + ' ';
+        res.write(`data: ${JSON.stringify({ text: word + ' ' })}\n\n`);
+        await new Promise((r) => setTimeout(r, 50));
+      }
+    } else {
+      fullResponse = await streamText(prompt, (chunkText) => {
+        res.write(`data: ${JSON.stringify({ text: chunkText })}\n\n`);
+      });
+    }
+
+    // 6. Save Model Message
+    if (process.env.SKIP_MONGO !== 'true') {
+      await ChatMessageModel.create({
+        documentId: id,
+        userId,
+        role: 'model',
+        content: fullResponse.trim(),
+        sourceChunks,
+      });
+    }
+
+    res.write(`data: ${JSON.stringify({ done: true })}\n\n`);
+    res.end();
+  } catch (error: any) {
+    console.error('Chat streaming error:', error);
+    res.write(`data: ${JSON.stringify({ error: error.message || 'Stream failed' })}\n\n`);
+    res.end();
   }
 });
 

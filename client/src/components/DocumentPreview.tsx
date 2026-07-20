@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { Document, Summary } from '../../../shared';
 import { X, FileText, Loader2, AlertCircle, RefreshCw } from 'lucide-react';
 import { DocumentSummary } from './DocumentSummary';
+import { ChatPanel } from './ChatPanel';
 
 interface DocumentPreviewProps {
   documentId: string | null;
@@ -36,7 +37,7 @@ export const DocumentPreview: React.FC<DocumentPreviewProps> = ({ documentId, on
             setSummary(summaryData);
           }
         } catch (e) {
-          // Summary fetch failed, ignore (it might not exist yet)
+          // Summary fetch failed, ignore
         }
       } catch (err: any) {
         setError(err.message);
@@ -70,7 +71,7 @@ export const DocumentPreview: React.FC<DocumentPreviewProps> = ({ documentId, on
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
-      <div className="bg-background w-full max-w-5xl h-[90vh] rounded-xl shadow-2xl flex flex-col overflow-hidden animate-in zoom-in-95 duration-200">
+      <div className="bg-background w-full max-w-7xl h-[95vh] rounded-xl shadow-2xl flex flex-col overflow-hidden animate-in zoom-in-95 duration-200">
         {/* Header */}
         <div className="px-6 py-4 border-b border-border flex justify-between items-center bg-card shrink-0">
           <div className="flex items-center gap-3">
@@ -108,49 +109,61 @@ export const DocumentPreview: React.FC<DocumentPreviewProps> = ({ documentId, on
           </div>
         </div>
 
-        {/* Content */}
-        <div className="flex-1 overflow-y-auto p-6 bg-muted/20">
+        {/* Content - Split Screen */}
+        <div className="flex-1 flex overflow-hidden">
           {loading && (
-            <div className="h-full flex flex-col items-center justify-center text-muted-foreground">
+            <div className="w-full h-full flex flex-col items-center justify-center text-muted-foreground">
               <Loader2 className="animate-spin mb-4" size={32} />
               <p>Loading document details...</p>
             </div>
           )}
 
           {error && (
-            <div className="h-full flex flex-col items-center justify-center text-destructive">
+            <div className="w-full h-full flex flex-col items-center justify-center text-destructive">
               <AlertCircle size={32} className="mb-4" />
               <p>{error}</p>
             </div>
           )}
 
           {!loading && !error && doc && (
-            <div className="space-y-8">
-              {/* Raw Text Preview */}
-              <div className="bg-card p-6 rounded-lg border border-border shadow-sm">
-                <h3 className="text-lg font-bold text-foreground mb-4">Extracted Text Preview</h3>
-                {doc.extractedText ? (
-                  <div className="h-64 overflow-y-auto bg-muted/50 rounded p-4 border border-border">
-                    <pre className="whitespace-pre-wrap font-sans text-sm text-foreground leading-relaxed">
-                      {doc.extractedText}
-                    </pre>
+            <>
+              {/* Left Side: Document & Summary */}
+              <div className="flex-1 overflow-y-auto p-6 bg-muted/20 border-r border-border">
+                <div className="space-y-8">
+                  {/* Raw Text Preview */}
+                  <div className="bg-card p-6 rounded-lg border border-border shadow-sm">
+                    <h3 className="text-lg font-bold text-foreground mb-4">
+                      Extracted Text Preview
+                    </h3>
+                    {doc.extractedText ? (
+                      <div className="h-64 overflow-y-auto bg-muted/50 rounded p-4 border border-border">
+                        <pre className="whitespace-pre-wrap font-sans text-sm text-foreground leading-relaxed">
+                          {doc.extractedText}
+                        </pre>
+                      </div>
+                    ) : (
+                      <p className="text-muted-foreground italic text-center py-8">
+                        No text could be extracted from this document, or extraction failed.
+                      </p>
+                    )}
                   </div>
-                ) : (
-                  <p className="text-muted-foreground italic text-center py-8">
-                    No text could be extracted from this document, or extraction failed.
-                  </p>
-                )}
+
+                  {/* Summary Section */}
+                  {(summary || generatingSummary) && (
+                    <DocumentSummary
+                      summary={summary}
+                      isGenerating={generatingSummary}
+                      onRegenerate={handleGenerateSummary}
+                    />
+                  )}
+                </div>
               </div>
 
-              {/* Summary Section */}
-              {(summary || generatingSummary) && (
-                <DocumentSummary
-                  summary={summary}
-                  isGenerating={generatingSummary}
-                  onRegenerate={handleGenerateSummary}
-                />
-              )}
-            </div>
+              {/* Right Side: Chat Panel */}
+              <div className="w-96 shrink-0 bg-card">
+                <ChatPanel documentId={documentId} />
+              </div>
+            </>
           )}
         </div>
       </div>

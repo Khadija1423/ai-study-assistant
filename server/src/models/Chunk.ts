@@ -9,6 +9,7 @@ const ChunkSchema = new Schema<ChunkModel>({
   chunkIndex: { type: Number, required: true },
   text: { type: String, required: true },
   tokenCount: { type: Number, required: true },
+  embedding: { type: [Number] },
 });
 
 export const ChunkModel = mongoose.model<ChunkModel>('Chunk', ChunkSchema);

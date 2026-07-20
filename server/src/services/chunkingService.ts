@@ -1,5 +1,6 @@
 import { encode, decode } from 'gpt-tokenizer';
 import { ChunkModel } from '../models/Chunk';
+import { embedText } from '../ai/client';
 
 const TARGET_CHUNK_TOKENS = 600;
 const OVERLAP_TOKENS = 100;
@@ -36,16 +37,31 @@ export const processAndSaveChunks = async (
 
     const chunksData = splitTextIntoChunks(text);
 
-    const chunkDocs = chunksData.map((data, index) => ({
-      documentId,
-      userId,
-      chunkIndex: index,
-      text: data.text,
-      tokenCount: data.tokenCount,
-    }));
+    // Process sequentially to avoid aggressive rate-limiting on Gemini Free Tier
+    for (let index = 0; index < chunksData.length; index++) {
+      const data = chunksData[index];
+      let embedding: number[] | undefined;
 
-    if (chunkDocs.length > 0) {
-      await ChunkModel.insertMany(chunkDocs);
+      // Skip embedding generation in pure mock mode to save time/keys
+      if (process.env.NODE_ENV !== 'test' && process.env.SKIP_MONGO !== 'true') {
+        try {
+          embedding = await embedText(data.text);
+        } catch (embedError) {
+          console.error(`Failed to embed chunk ${index}`, embedError);
+          throw new Error(`Embedding failed for chunk ${index}.`);
+        }
+      }
+
+      const chunkDoc = new ChunkModel({
+        documentId,
+        userId,
+        chunkIndex: index,
+        text: data.text,
+        tokenCount: data.tokenCount,
+        embedding,
+      });
+
+      await chunkDoc.save();
     }
   } catch (error: any) {
     console.error('Failed to process and save chunks:', error);

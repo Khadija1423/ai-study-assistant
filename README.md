@@ -53,3 +53,33 @@ Once running, you can test the server health at:
 ```bash
 curl http://localhost:3001/api/health
 ```
+
+### MongoDB Atlas Vector Search
+
+If you deploy this to production, you should set up an Atlas Vector Search index on the `chunks` collection.
+Atlas requires this to be configured in the Atlas UI or via the Atlas API (it cannot be automated purely from Mongoose).
+If it is not configured, the app will gracefully fall back to an in-memory cosine similarity search (which works well for hundreds of chunks).
+
+1. Go to your MongoDB Atlas cluster.
+2. Select **Search** -> **Create Search Index**.
+3. Choose **JSON Editor**.
+4. Select your Database and the `chunks` collection.
+5. Paste the following configuration:
+   \`\`\`json
+   {
+   "mappings": {
+   "dynamic": true,
+   "fields": {
+   "embedding": {
+   "dimensions": 768,
+   "similarity": "cosine",
+   "type": "knnVector"
+   },
+   "documentId": {
+   "type": "token"
+   }
+   }
+   }
+   }
+   \`\`\`
+   _(Note: Dimensions should match the Gemini embedding model dimensions. Ensure you adjust if the model changes.)_

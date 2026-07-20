@@ -62,6 +62,7 @@ export interface Chunk {
   chunkIndex: number;
   text: string;
   tokenCount: number;
+  embedding?: number[];
 }
 
 export interface TermDefinition {
@@ -74,4 +75,14 @@ export interface Summary {
   keyPoints: string[];
   definitions: TermDefinition[];
   examFocusNotes: string[];
+}
+
+export interface ChatMessage {
+  _id?: string;
+  documentId: string;
+  userId: string;
+  role: 'user' | 'model';
+  content: string;
+  sourceChunks?: { chunkIndex: number; excerpt: string }[];
+  createdAt: Date;
 }

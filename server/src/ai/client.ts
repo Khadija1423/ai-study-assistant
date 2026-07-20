@@ -62,3 +62,26 @@ export const embedText = async (text: string): Promise<number[]> => {
     return result.embedding.values;
   });
 };
+
+// Streaming text generator for chat
+export const streamText = async (
+  prompt: string,
+  onChunk: (text: string) => void,
+): Promise<string> => {
+  if (!genAI) throw new Error('Generative AI client not initialized (missing API key)');
+
+  const model = genAI.getGenerativeModel({ model: modelName });
+
+  return withRetry(async () => {
+    const result = await model.generateContentStream(prompt);
+    let fullText = '';
+
+    for await (const chunk of result.stream) {
+      const chunkText = chunk.text();
+      fullText += chunkText;
+      onChunk(chunkText);
+    }
+
+    return fullText;
+  });
+};
