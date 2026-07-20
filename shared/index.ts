@@ -97,3 +97,27 @@ export interface Flashcard {
   isFavorited: boolean;
   createdAt: Date;
 }
+
+export interface StudyTopic {
+  topic: string;
+  documentId: string;
+  minutes: number;
+  priority: 'high' | 'medium' | 'low';
+  completed?: boolean;
+}
+
+export interface StudyPlanDay {
+  date: string;
+  topics: StudyTopic[];
+  totalMinutes: number;
+}
+
+export interface StudyPlan {
+  _id?: string;
+  userId: string;
+  examDate: string;
+  hoursPerDay: number;
+  documentIds: string[];
+  days: StudyPlanDay[];
+  createdAt: Date;
+}
