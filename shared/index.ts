@@ -53,3 +53,12 @@ export interface Document {
   errorMessage?: string;
   createdAt: Date;
 }
+
+export interface Chunk {
+  _id?: string;
+  documentId: string;
+  userId: string;
+  chunkIndex: number;
+  text: string;
+  tokenCount: number;
+}
