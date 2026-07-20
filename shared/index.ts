@@ -86,3 +86,14 @@ export interface ChatMessage {
   sourceChunks?: { chunkIndex: number; excerpt: string }[];
   createdAt: Date;
 }
+
+export interface Flashcard {
+  _id?: string;
+  documentId: string;
+  userId: string;
+  question: string;
+  answer: string;
+  topic: string;
+  isFavorited: boolean;
+  createdAt: Date;
+}

@@ -7,7 +7,6 @@ import { processAndSaveChunks } from '../services/chunkingService';
 import { generateText, embedText, streamText } from '../ai/client';
 import { ChatMessageModel } from '../models/ChatMessage';
 import { retrieveRelevantChunks } from '../services/retrievalService';
-import { AnswerSubmission } from '../../../shared';
 
 const router = Router();
 const upload = multer({
@@ -494,6 +493,127 @@ Answer:`;
     console.error('Chat streaming error:', error);
     res.write(`data: ${JSON.stringify({ error: error.message || 'Stream failed' })}\n\n`);
     res.end();
+  }
+});
+
+import { FlashcardModel } from '../models/Flashcard';
+
+// GET flashcards for a document
+router.get('/:id/flashcards', async (req, res) => {
+  const { id } = req.params;
+  const userId = 'user_123';
+  try {
+    if (process.env.SKIP_MONGO === 'true') {
+      return res.json([]);
+    }
+    const flashcards = await FlashcardModel.find({ documentId: id, userId }).sort('createdAt');
+    res.json(flashcards);
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to fetch flashcards' });
+  }
+});
+
+// POST generate flashcards
+router.post('/:id/flashcards', async (req, res) => {
+  const { id } = req.params;
+  const userId = 'user_123';
+
+  try {
+    let textToProcess = '';
+
+    if (process.env.SKIP_MONGO === 'true') {
+      textToProcess = 'Mock extracted text for sandbox testing. '.repeat(10);
+    } else {
+      const doc = await DocumentModel.findOne({ _id: id, userId });
+      if (!doc) {
+        return res.status(404).json({ error: 'Document not found' });
+      }
+
+      if (!doc.extractedText) {
+        return res
+          .status(400)
+          .json({ error: 'Document text is not ready for flashcard generation' });
+      }
+      textToProcess = doc.extractedText.slice(0, 30000);
+    }
+
+    const prompt = `Generate a set of educational flashcards based on the following document.
+    Aim for 10-20 cards depending on document length, extracting key concepts, definitions, and important facts.
+    Return strictly JSON matching this structure:
+    [
+      { "question": "string", "answer": "string", "topic": "string" }
+    ]
+    No markdown blocks, no other text.
+
+    Document text:
+    ${textToProcess}
+    `;
+
+    let parsedCards: any[] = [];
+    let attempts = 0;
+    const maxAttempts = 2;
+
+    while (attempts < maxAttempts) {
+      try {
+        let aiResponse;
+        if (
+          (process.env.NODE_ENV === 'test' && process.env.MOCK_AI !== 'false') ||
+          process.env.SKIP_MONGO === 'true'
+        ) {
+          aiResponse = JSON.stringify([
+            { question: 'What is a mock?', answer: 'A test double', topic: 'Testing' },
+            { question: 'What does 2+2 equal?', answer: '4', topic: 'Math' },
+          ]);
+        } else {
+          aiResponse = await generateText(prompt, { jsonMode: true });
+        }
+
+        const cleanedResponse = aiResponse
+          .replace(/```json/g, '')
+          .replace(/```/g, '')
+          .trim();
+        parsedCards = JSON.parse(cleanedResponse);
+
+        if (!Array.isArray(parsedCards)) throw new Error('Response is not a JSON array');
+        break;
+      } catch (parseError) {
+        attempts++;
+        if (attempts >= maxAttempts) {
+          throw new Error('Failed to parse AI flashcards after retries');
+        }
+        console.warn(`Flashcard parse failed, retrying... (${attempts}/${maxAttempts})`);
+      }
+    }
+
+    if (!parsedCards || parsedCards.length === 0) {
+      return res.status(500).json({ error: 'Flashcard generation failed' });
+    }
+
+    const cardsToSave = parsedCards.map((c) => ({
+      documentId: id,
+      userId,
+      question: c.question,
+      answer: c.answer,
+      topic: c.topic,
+    }));
+
+    if (process.env.SKIP_MONGO !== 'true') {
+      await FlashcardModel.insertMany(cardsToSave);
+    }
+
+    // Usually you'd want to fetch them right back so they have _id fields from mongo,
+    // but returning the array directly for now to be fast
+    const returnCards =
+      process.env.SKIP_MONGO === 'true'
+        ? cardsToSave.map((c, i) => ({ ...c, _id: 'mock_id_' + i }))
+        : await FlashcardModel.find({ documentId: id, userId })
+            .sort({ _id: -1 })
+            .limit(cardsToSave.length);
+
+    res.json(returnCards);
+  } catch (error) {
+    console.error('Flashcard generation error:', error);
+    res.status(500).json({ error: 'Failed to generate flashcards' });
   }
 });
 

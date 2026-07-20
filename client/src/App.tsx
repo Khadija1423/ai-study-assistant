@@ -5,6 +5,7 @@ import { QuizResults } from './components/QuizResults';
 import { DocumentUpload } from './components/DocumentUpload';
 import { DocumentList } from './components/DocumentList';
 import { DocumentPreview } from './components/DocumentPreview';
+import { Flashcards } from './components/Flashcards';
 import {
   Difficulty,
   QuestionType,
@@ -14,7 +15,7 @@ import {
   Document,
 } from '../../shared';
 
-type AppTab = 'documents' | 'quiz';
+type AppTab = 'documents' | 'quiz' | 'flashcards';
 type QuizState = 'setup' | 'taking' | 'results';
 
 function App() {
@@ -37,8 +38,8 @@ function App() {
   const [isLoading, setIsLoading] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // Currently we use a dummy document ID for quizzes if none selected, but ideally it should tie into a doc
-  // We'll just hardcode it to dummy_doc_id to maintain backwards compatibility with the previous step
+  // Flashcards state
+  // Typically you'd pick a document first to see flashcards, we'll hardcode dummy_doc_id
   const documentId = 'dummy_doc_id';
 
   const fetchDocuments = async () => {
@@ -129,7 +130,7 @@ function App() {
   };
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-background flex flex-col">
       <header className="border-b border-border bg-card sticky top-0 z-40">
         <div className="max-w-7xl mx-auto px-4 py-4 sm:px-6 lg:px-8 flex justify-between items-center">
           <h1 className="text-2xl font-bold text-primary flex items-center gap-2">
@@ -159,11 +160,21 @@ function App() {
             >
               Quizzes
             </button>
+            <button
+              onClick={() => setActiveTab('flashcards')}
+              className={`px-4 py-2 text-sm font-medium rounded-md transition-colors ${
+                activeTab === 'flashcards'
+                  ? 'bg-background text-foreground shadow-sm'
+                  : 'text-muted-foreground hover:text-foreground'
+              }`}
+            >
+              Flashcards
+            </button>
           </nav>
         </div>
       </header>
 
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
+      <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-12">
         {activeTab === 'documents' && (
           <div className="space-y-8">
             <section>
@@ -205,6 +216,8 @@ function App() {
             )}
           </div>
         )}
+
+        {activeTab === 'flashcards' && <Flashcards documentId={documentId} />}
       </main>
     </div>
   );

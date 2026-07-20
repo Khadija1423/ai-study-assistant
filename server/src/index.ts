@@ -4,6 +4,7 @@ import dotenv from 'dotenv';
 import { connectDB } from './config/db';
 import quizRoutes from './routes/quiz';
 import documentRoutes from './routes/documents';
+import flashcardRoutes from './routes/flashcards';
 
 dotenv.config();
 
@@ -21,6 +22,7 @@ app.get('/api/health', (req, res) => {
 // Use routes
 app.use('/api', quizRoutes);
 app.use('/api/documents', documentRoutes);
+app.use('/api/flashcards', flashcardRoutes);
 
 const startServer = async () => {
   await connectDB();
