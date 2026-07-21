@@ -121,3 +121,44 @@ export interface StudyPlan {
   days: StudyPlanDay[];
   createdAt: Date;
 }
+
+export interface ExamQuestion {
+  type: QuestionType;
+  question: string;
+  options?: string[];
+  correctAnswer: string;
+  explanation: string;
+  topic: string; // Required for topic accuracy mapping
+}
+
+export interface Exam {
+  _id?: string;
+  documentIds: string[];
+  userId: string;
+  durationMinutes: number;
+  questionCount: number;
+  questions: ExamQuestion[];
+  expiresAt: Date;
+  createdAt: Date;
+}
+
+export interface TopicAccuracy {
+  topic: string;
+  correct: number;
+  total: number;
+  accuracy: number; // 0-100
+}
+
+export interface ExamAttempt {
+  _id?: string;
+  examId: string;
+  userId: string;
+  score: number;
+  total: number;
+  answers: AnswerSubmission[];
+  results: QuestionResult[];
+  accuracyByTopic: TopicAccuracy[];
+  weakTopics: string[];
+  suggestedRevision: string[];
+  createdAt: Date;
+}

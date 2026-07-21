@@ -6,6 +6,7 @@ import quizRoutes from './routes/quiz';
 import documentRoutes from './routes/documents';
 import flashcardRoutes from './routes/flashcards';
 import studyPlanRoutes from './routes/studyPlans';
+import examModeRoutes from './routes/examMode';
 
 dotenv.config();
 
@@ -25,6 +26,7 @@ app.use('/api', quizRoutes);
 app.use('/api/documents', documentRoutes);
 app.use('/api/flashcards', flashcardRoutes);
 app.use('/api/study-plans', studyPlanRoutes);
+app.use('/api/exam-mode', examModeRoutes);
 
 const startServer = async () => {
   await connectDB();

@@ -8,6 +8,9 @@ import { DocumentPreview } from './components/DocumentPreview';
 import { Flashcards } from './components/Flashcards';
 import { StudyPlanSetup } from './components/StudyPlanSetup';
 import { StudyPlanView } from './components/StudyPlanView';
+import { ExamSetup } from './components/ExamSetup';
+import { ExamTaking } from './components/ExamTaking';
+import { ExamReport } from './components/ExamReport';
 import {
   Difficulty,
   QuestionType,
@@ -16,11 +19,14 @@ import {
   QuestionResult,
   Document,
   StudyPlan,
+  Exam,
+  ExamAttempt,
 } from '../../shared';
 
-type AppTab = 'documents' | 'quiz' | 'flashcards' | 'studyPlan';
+type AppTab = 'documents' | 'quiz' | 'flashcards' | 'studyPlan' | 'examMode';
 type QuizState = 'setup' | 'taking' | 'results';
 type StudyPlanState = 'setup' | 'view';
+type ExamState = 'setup' | 'taking' | 'results';
 
 function App() {
   const [activeTab, setActiveTab] = useState<AppTab>('documents');
@@ -47,6 +53,12 @@ function App() {
   const [studyPlan, setStudyPlan] = useState<StudyPlan | null>(null);
   const [isGeneratingPlan, setIsGeneratingPlan] = useState(false);
 
+  // Exam Mode State
+  const [examState, setExamState] = useState<ExamState>('setup');
+  const [exam, setExam] = useState<Exam | null>(null);
+  const [examAttempt, setExamAttempt] = useState<ExamAttempt | null>(null);
+  const [isGeneratingExam, setIsGeneratingExam] = useState(false);
+
   // Flashcards state
   // Typically you'd pick a document first to see flashcards, we'll hardcode dummy_doc_id
   const documentId = 'dummy_doc_id';
@@ -68,7 +80,7 @@ function App() {
   };
 
   useEffect(() => {
-    if (activeTab === 'documents' || activeTab === 'studyPlan') {
+    if (activeTab === 'documents' || activeTab === 'studyPlan' || activeTab === 'examMode') {
       fetchDocuments();
     }
   }, [activeTab]);
@@ -199,6 +211,69 @@ function App() {
     }
   };
 
+  // --- Exam Mode Functions ---
+  const handleStartExam = async (options: {
+    documentIds: string[];
+    durationMinutes: number;
+    questionCount: number;
+  }) => {
+    setIsGeneratingExam(true);
+    try {
+      const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3001/api';
+      const response = await fetch(`${apiUrl}/exam-mode/start`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(options),
+      });
+
+      if (!response.ok) throw new Error('Failed to generate exam');
+
+      const data = await response.json();
+      setExam(data);
+      setExamState('taking');
+    } catch (error) {
+      console.error(error);
+      alert('Failed to start exam.');
+    } finally {
+      setIsGeneratingExam(false);
+    }
+  };
+
+  const handleSubmitExam = async (submittedAnswers: AnswerSubmission[]) => {
+    if (!exam?._id) return;
+
+    setIsSubmitting(true);
+    try {
+      const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3001/api';
+      const response = await fetch(`${apiUrl}/exam-mode/${exam._id}/submit`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ answers: submittedAnswers }),
+      });
+
+      // Handle 403 Time Expired case by parsing the report payload
+      if (!response.ok && response.status !== 403) {
+        throw new Error('Failed to submit exam');
+      }
+
+      const data = await response.json();
+
+      if (response.status === 403) {
+        alert('Time expired! Your exam was automatically submitted and scored.');
+        setExamAttempt(data.report);
+      } else {
+        setExamAttempt(data);
+      }
+
+      setExamState('results');
+    } catch (error) {
+      console.error(error);
+      alert('Failed to submit exam.');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-background flex flex-col">
       <header className="border-b border-border bg-card sticky top-0 z-40">
@@ -249,6 +324,16 @@ function App() {
               }`}
             >
               Flashcards
+            </button>
+            <button
+              onClick={() => setActiveTab('examMode')}
+              className={`px-4 py-2 text-sm font-medium rounded-md transition-colors ${
+                activeTab === 'examMode'
+                  ? 'bg-background text-foreground shadow-sm'
+                  : 'text-muted-foreground hover:text-foreground'
+              }`}
+            >
+              Exam Mode
             </button>
           </nav>
         </div>
@@ -312,6 +397,24 @@ function App() {
                 results={results}
                 onRestart={() => setQuizState('setup')}
               />
+            )}
+          </div>
+        )}
+
+        {activeTab === 'examMode' && (
+          <div>
+            {examState === 'setup' && (
+              <ExamSetup
+                documents={documents}
+                isGenerating={isGeneratingExam}
+                onStartExam={handleStartExam}
+              />
+            )}
+            {examState === 'taking' && exam && (
+              <ExamTaking exam={exam} onSubmitExam={handleSubmitExam} isSubmitting={isSubmitting} />
+            )}
+            {examState === 'results' && exam && examAttempt && (
+              <ExamReport exam={exam} attempt={examAttempt} onClose={() => setExamState('setup')} />
             )}
           </div>
         )}
