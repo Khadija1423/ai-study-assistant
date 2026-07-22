@@ -91,7 +91,7 @@ export const Flashcards: React.FC<FlashcardsProps> = ({ documentId }) => {
     }
   }, [currentIndex]);
 
-  const handleDragEnd = (event: any, info: any) => {
+  const handleDragEnd = (_event: any, info: any) => {
     // Threshold for swipe
     const swipeThreshold = 50;
     if (info.offset.x > swipeThreshold) {

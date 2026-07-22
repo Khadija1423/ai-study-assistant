@@ -7,6 +7,7 @@ import documentRoutes from './routes/documents';
 import flashcardRoutes from './routes/flashcards';
 import studyPlanRoutes from './routes/studyPlans';
 import examModeRoutes from './routes/examMode';
+import exportRoutes from './routes/export';
 
 dotenv.config();
 
@@ -27,6 +28,7 @@ app.use('/api/documents', documentRoutes);
 app.use('/api/flashcards', flashcardRoutes);
 app.use('/api/study-plans', studyPlanRoutes);
 app.use('/api/exam-mode', examModeRoutes);
+app.use('/api/export', exportRoutes);
 
 const startServer = async () => {
   await connectDB();
