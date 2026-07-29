@@ -162,3 +162,12 @@ export interface ExamAttempt {
   suggestedRevision: string[];
   createdAt: Date;
 }
+
+export interface DashboardStats {
+  recentDocuments: Document[];
+  totalDocuments: number;
+  totalFlashcards: number;
+  totalQuizzes: number;
+  averageQuizScore: number; // 0-100 percentage
+  activeStudyPlan: StudyPlan | null;
+}

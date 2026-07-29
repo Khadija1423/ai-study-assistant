@@ -1,5 +1,13 @@
 node_modules/
-.env
 dist/
 build/
+.env
 *.log
+*/node_modules/
+*/dist/
+*/build/
+*/.env
+*/.log
+**/*/node_modules/
+**/*/dist/
+**/*/build/
